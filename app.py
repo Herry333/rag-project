@@ -6,32 +6,40 @@ from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+import os
 
-loader = TextLoader("data/docs.txt")
-text_documents = loader.load()
-#-------------------------------------------------------------
-print("Reading PDFs from source_docs...")
-loader = DirectoryLoader('./Data/source_data/', glob="./*.pdf", loader_cls=PyPDFLoader)
-pdf_documents = loader.load()
-#-----------------------------------------------------------
-documents = pdf_documents + text_documents
-
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=200,
-    chunk_overlap=50
-)
-chunks = splitter.split_documents(documents)
-
-embeddings=HuggingFaceEmbeddings(
+embeddings = HuggingFaceEmbeddings(
     model_name="all-MiniLM-L6-v2",
     model_kwargs={'device': 'cpu'},
     encode_kwargs={'normalize_embeddings': True}
 )
 
-vector_db=FAISS.from_documents(chunks,embeddings)
-retriever=vector_db.as_retriever()
+DB_FAISS_PATH = 'vectorstore/db_faiss'
+if not os.path.exists(DB_FAISS_PATH):
+    print("No DB exist! Reading data...")
 
+    loader = TextLoader("data/docs.txt")
+    text_documents = loader.load()
+    #-------------------------------------------------------------
+    print("Reading PDFs from source_docs...")
+    loader = DirectoryLoader('./Data/source_data/', glob="./*.pdf", loader_cls=PyPDFLoader)
+    pdf_documents = loader.load()
+    #-----------------------------------------------------------
+    documents = pdf_documents + text_documents
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=200,
+        chunk_overlap=50
+    )
+    chunks = splitter.split_documents(documents)
+    vector_db=FAISS.from_documents(chunks,embeddings)
+    vector_db.save_local(DB_FAISS_PATH)
+    print(f"Stored Vector in local system at {DB_FAISS_PATH} ")
+else:
+    vector_db = FAISS.load_local(DB_FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
+
+
+retriever=vector_db.as_retriever()
 llm = OllamaLLM(model="llama3")
 
 def format_docs(docs):

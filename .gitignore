@@ -5,3 +5,4 @@ Data/
 *.xml
 docs.txt
 faiss_index/
+vectorstore/
