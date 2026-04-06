@@ -1,15 +1,21 @@
-from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import TextLoader, DirectoryLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaLLM
-
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
 loader = TextLoader("data/docs.txt")
-documents = loader.load()
+text_documents = loader.load()
+#-------------------------------------------------------------
+print("Reading PDFs from source_docs...")
+loader = DirectoryLoader('./Data/source_data/', glob="./*.pdf", loader_cls=PyPDFLoader)
+pdf_documents = loader.load()
+#-----------------------------------------------------------
+documents = pdf_documents + text_documents
+
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size=200,
@@ -17,7 +23,12 @@ splitter = RecursiveCharacterTextSplitter(
 )
 chunks = splitter.split_documents(documents)
 
-embeddings=HuggingFaceEmbeddings()
+embeddings=HuggingFaceEmbeddings(
+    model_name="all-MiniLM-L6-v2",
+    model_kwargs={'device': 'cpu'},
+    encode_kwargs={'normalize_embeddings': True}
+)
+
 vector_db=FAISS.from_documents(chunks,embeddings)
 retriever=vector_db.as_retriever()
 
