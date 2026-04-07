@@ -1,4 +1,4 @@
-from langchain_community.document_loaders import TextLoader, DirectoryLoader, PyPDFLoader
+from langchain_community.document_loaders import TextLoader, DirectoryLoader, PyPDFLoader, WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -13,11 +13,15 @@ embeddings = HuggingFaceEmbeddings(
     model_kwargs={'device': 'cpu'},
     encode_kwargs={'normalize_embeddings': True}
 )
+urls=[
+    "https://cran.r-project.org/web/packages/rpact/refman/rpact.html"
+]
 
 DB_FAISS_PATH = 'vectorstore/db_faiss'
 if not os.path.exists(DB_FAISS_PATH):
     print("No DB exist! Reading data...")
 
+    print("Reading text from docs...")
     loader = TextLoader("data/docs.txt")
     text_documents = loader.load()
     #-------------------------------------------------------------
@@ -25,7 +29,12 @@ if not os.path.exists(DB_FAISS_PATH):
     loader = DirectoryLoader('./Data/source_data/', glob="./*.pdf", loader_cls=PyPDFLoader)
     pdf_documents = loader.load()
     #-----------------------------------------------------------
-    documents = pdf_documents + text_documents
+    print("Reading text from Url source ...")
+    loader=WebBaseLoader(urls)
+    url_documents=loader.load()
+    #-----------------------------------------------------------
+
+    documents = pdf_documents + text_documents + url_documents
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=200,
@@ -35,6 +44,7 @@ if not os.path.exists(DB_FAISS_PATH):
     vector_db=FAISS.from_documents(chunks,embeddings)
     vector_db.save_local(DB_FAISS_PATH)
     print(f"Stored Vector in local system at {DB_FAISS_PATH} ")
+    print(f"Success! Brain contains {len(documents)} sources.")#353
 else:
     vector_db = FAISS.load_local(DB_FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
 
